@@ -1,0 +1,168 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <mysql/mysql.h>
+
+#define MAX_ACCOUNTS 100
+
+// Structure to store account details
+typedef struct {
+    int id;
+    char name[50];
+    double balance;
+} Account;
+
+Account accounts[MAX_ACCOUNTS];
+int accountCount = 0;
+MYSQL *conn;
+
+// Function to connect to MySQL database
+void connectDatabase() {
+    conn = mysql_init(NULL);
+    if (conn == NULL) {
+        printf("MySQL initialization failed!\n");
+        exit(1);
+    }
+    if (mysql_real_connect(conn, "localhost", "root", "password", "bank_db", 0, NULL, 0) == NULL) {
+        printf("MySQL connection failed: %s\n", mysql_error(conn));
+        exit(1);
+    }
+    printf("Connected to MySQL database successfully!\n");
+}
+
+// Function to create a new account
+void createAccount() {
+    char name[50];
+    double balance;
+    
+    printf("Enter account holder name: ");
+    scanf(" %[^"]s", name);
+    printf("Enter initial deposit amount: ");
+    scanf("%lf", &balance);
+    
+    char query[256];
+    sprintf(query, "INSERT INTO accounts (name, balance) VALUES ('%s', %.2f)", name, balance);
+    if (mysql_query(conn, query)) {
+        printf("Failed to create account: %s\n", mysql_error(conn));
+    } else {
+        printf("Account created successfully!\n");
+    }
+}
+
+// Function to deposit money
+void depositMoney() {
+    int id;
+    double amount;
+    
+    printf("Enter account ID: ");
+    scanf("%d", &id);
+    printf("Enter deposit amount: ");
+    scanf("%lf", &amount);
+    
+    char query[256];
+    sprintf(query, "UPDATE accounts SET balance = balance + %.2f WHERE id = %d", amount, id);
+    if (mysql_query(conn, query)) {
+        printf("Failed to deposit money: %s\n", mysql_error(conn));
+    } else {
+        printf("Deposit successful!\n");
+    }
+}
+
+// Function to withdraw money
+void withdrawMoney() {
+    int id;
+    double amount;
+    
+    printf("Enter account ID: ");
+    scanf("%d", &id);
+    printf("Enter withdrawal amount: ");
+    scanf("%lf", &amount);
+    
+    char query[256];
+    sprintf(query, "UPDATE accounts SET balance = balance - %.2f WHERE id = %d AND balance >= %.2f", amount, id, amount);
+    if (mysql_query(conn, query)) {
+        printf("Failed to withdraw money: %s\n", mysql_error(conn));
+    } else {
+        printf("Withdrawal successful!\n");
+    }
+}
+
+// Function to display account details
+void displayAccounts() {
+    if (mysql_query(conn, "SELECT * FROM accounts")) {
+        printf("Failed to retrieve data: %s\n", mysql_error(conn));
+        return;
+    }
+    MYSQL_RES *result = mysql_store_result(conn);
+    if (result == NULL) {
+        printf("Failed to store result: %s\n", mysql_error(conn));
+        return;
+    }
+    MYSQL_ROW row;
+    printf("\nAccount Records:\n");
+    printf("%-5s %-20s %-10s\n", "ID", "Name", "Balance");
+    while ((row = mysql_fetch_row(result))) {
+        printf("%-5s %-20s %-10s\n", row[0], row[1], row[2]);
+    }
+    mysql_free_result(result);
+}
+
+// Function to delete an account
+void deleteAccount() {
+    int id;
+    printf("Enter the account ID to delete: ");
+    scanf("%d", &id);
+    
+    char query[256];
+    sprintf(query, "DELETE FROM accounts WHERE id = %d", id);
+    if (mysql_query(conn, query)) {
+        printf("Failed to delete account: %s\n", mysql_error(conn));
+    } else {
+        printf("Account deleted successfully!\n");
+    }
+}
+
+// Main menu
+void mainMenu() {
+    int choice;
+    connectDatabase();
+    while (1) {
+        printf("\nBank Management System\n");
+        printf("1. Create Account\n");
+        printf("2. Deposit Money\n");
+        printf("3. Withdraw Money\n");
+        printf("4. Display Accounts\n");
+        printf("5. Delete Account\n");
+        printf("6. Exit\n");
+        printf("Choose an option: ");
+        scanf("%d", &choice);
+        switch (choice) {
+            case 1:
+                createAccount();
+                break;
+            case 2:
+                depositMoney();
+                break;
+            case 3:
+                withdrawMoney();
+                break;
+            case 4:
+                displayAccounts();
+                break;
+            case 5:
+                deleteAccount();
+                break;
+            case 6:
+                mysql_close(conn);
+                printf("Goodbye!\n");
+                exit(0);
+            default:
+                printf("Invalid choice! Please try again.\n");
+        }
+    }
+}
+
+int main() {
+    mainMenu();
+    return 0;
+}
